@@ -151,34 +151,32 @@ export default function SignatureStep({ form, onSignatureEnd }: SignatureStepPro
         return
       }
 
-      // Check if canvas is empty (all white)
-      const ctx = canvas.getContext("2d")
-      if (!ctx) {
-        setDebugInfo("Error: Could not get canvas context")
-        return
-      }
-
       // Get the signature data
-      const signatureData = canvas.toDataURL("image/png")
+      try {
+        const signatureData = canvas.toDataURL("image/png")
 
-      if (!signatureData || !signatureData.startsWith("data:image/")) {
-        setDebugInfo("Error: Invalid signature data format")
-        return
+        if (!signatureData || !signatureData.startsWith("data:image/")) {
+          setDebugInfo("Error: Invalid signature data format")
+          return
+        }
+
+        // Set the form value
+        form.setValue("signatureData", signatureData, {
+          shouldValidate: true,
+          shouldDirty: true,
+          shouldTouch: true,
+        })
+
+        onSignatureEnd(signatureData)
+        setIsSigned(true)
+        setDebugInfo(`Signature captured: ${signatureData.substring(0, 20)}...`)
+      } catch (error) {
+        setDebugInfo(`Error capturing signature: ${error}`)
+        console.error("Error capturing signature:", error)
       }
-
-      // Set the form value
-      form.setValue("signatureData", signatureData, {
-        shouldValidate: true,
-        shouldDirty: true,
-        shouldTouch: true,
-      })
-
-      onSignatureEnd(signatureData)
-      setIsSigned(true)
-      setDebugInfo(`Signature captured: ${signatureData.substring(0, 20)}...`)
     } catch (error) {
-      setDebugInfo(`Error capturing signature: ${error}`)
-      console.error("Error capturing signature:", error)
+      setDebugInfo(`Error in capture function: ${error}`)
+      console.error("Error in capture function:", error)
     }
   }
 
