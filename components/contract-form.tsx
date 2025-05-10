@@ -333,9 +333,32 @@ export default function ContractForm({ branchId }: ContractFormProps) {
   }
 
   const onSignatureEnd = (signatureData: string) => {
-    console.log("Signature data received:", signatureData.substring(0, 50) + "...")
+    console.log("Signature data received:", signatureData ? `${signatureData.substring(0, 50)}...` : "empty")
     setSignatureData(signatureData)
-    form.setValue("signatureData", signatureData)
+
+    // Set the signature data with validation
+    if (signatureData && signatureData.startsWith("data:image/")) {
+      form.setValue("signatureData", signatureData, {
+        shouldValidate: true,
+        shouldDirty: true,
+        shouldTouch: true,
+      })
+    } else {
+      console.error("Invalid signature data format received")
+    }
+  }
+
+  // Add this function to the component
+  const validateFormBeforeSubmit = () => {
+    // Check if signature data is present
+    const currentSignatureData = form.getValues("signatureData")
+    if (!currentSignatureData || currentSignatureData.length < 10) {
+      console.error("Missing or invalid signature data before submission")
+      setSubmissionError("Please provide a valid signature before submitting")
+      return false
+    }
+
+    return true
   }
 
   const onSubmit = async (data: FormValues) => {
@@ -424,7 +447,12 @@ export default function ContractForm({ branchId }: ContractFormProps) {
     console.log("Direct submit handler called")
     console.log("Current form values:", form.getValues())
 
-    // Validate form
+    // First check signature data specifically
+    if (!validateFormBeforeSubmit()) {
+      return
+    }
+
+    // Then validate the rest of the form
     form.trigger().then((isValid) => {
       console.log("Form validation result:", isValid)
       if (isValid) {
