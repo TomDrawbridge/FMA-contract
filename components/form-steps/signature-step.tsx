@@ -1,13 +1,14 @@
 "use client"
 
+import type React from "react"
+
 import { useRef, useState, useEffect } from "react"
 import type { UseFormReturn } from "react-hook-form"
 import { FormField, FormItem, FormControl, FormMessage } from "@/components/ui/form"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
-import SignatureCanvas from "react-signature-canvas"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { InfoIcon, Trash2Icon, UndoIcon } from "lucide-react"
+import { InfoIcon, Trash2Icon } from "lucide-react"
 import GetIp from "../get-ip"
 
 interface SignatureStepProps {
@@ -16,14 +17,15 @@ interface SignatureStepProps {
 }
 
 export default function SignatureStep({ form, onSignatureEnd }: SignatureStepProps) {
-  const sigCanvas = useRef<SignatureCanvas>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const [isDrawing, setIsDrawing] = useState(false)
   const [isSigned, setIsSigned] = useState(false)
   const [ipAddress, setIpAddress] = useState("127.0.0.1")
   const [canvasWidth, setCanvasWidth] = useState(300)
   const [canvasHeight, setCanvasHeight] = useState(200)
-  const [strokeHistory, setStrokeHistory] = useState<any[]>([])
   const [debugInfo, setDebugInfo] = useState<string>("")
+  const [lastPos, setLastPos] = useState({ x: 0, y: 0 })
 
   // Measure and set the canvas size to match its container
   useEffect(() => {
@@ -46,144 +48,143 @@ export default function SignatureStep({ form, onSignatureEnd }: SignatureStepPro
     return () => window.removeEventListener("resize", updateCanvasSize)
   }, [])
 
-  const clearSignature = () => {
-    if (sigCanvas.current) {
-      sigCanvas.current.clear()
-      setIsSigned(false)
-      form.setValue("signatureData", "")
-      onSignatureEnd("")
-      setStrokeHistory([])
-      setDebugInfo("Signature cleared")
-    }
-  }
-
-  const undoLastStroke = () => {
-    if (sigCanvas.current && strokeHistory.length > 0) {
-      // Remove the last stroke from history
-      const newHistory = [...strokeHistory]
-      newHistory.pop()
-      setStrokeHistory(newHistory)
-
-      // Clear canvas and redraw remaining strokes
-      sigCanvas.current.clear()
-      if (newHistory.length > 0) {
-        sigCanvas.current.fromData(newHistory)
-        const signatureData = sigCanvas.current.toDataURL("image/png")
-        form.setValue("signatureData", signatureData)
-        onSignatureEnd(signatureData)
-        setIsSigned(true)
-        setDebugInfo(`Undo: ${signatureData.substring(0, 20)}...`)
-      } else {
-        form.setValue("signatureData", "")
-        onSignatureEnd("")
-        setIsSigned(false)
-        setDebugInfo("Undo: Signature cleared")
-      }
-    }
-  }
-
-  const handleBegin = () => {
-    // Nothing special needed on begin
-    setDebugInfo("Signature started")
-  }
-
-  const handleEnd = () => {
-    if (sigCanvas.current) {
-      if (!sigCanvas.current.isEmpty()) {
-        setIsSigned(true)
-
-        try {
-          // Get trimmed signature data (removes whitespace)
-          const trimmedCanvas = sigCanvas.current.getTrimmedCanvas()
-          const signatureData = trimmedCanvas.toDataURL("image/png")
-
-          // Ensure we're getting valid data
-          if (signatureData && signatureData.startsWith("data:image/")) {
-            form.setValue("signatureData", signatureData, {
-              shouldValidate: true,
-              shouldDirty: true,
-              shouldTouch: true,
-            })
-            onSignatureEnd(signatureData)
-            setDebugInfo(`Signature captured: ${signatureData.substring(0, 20)}...`)
-
-            // Save stroke history for undo functionality
-            const currentData = sigCanvas.current.toData()
-            if (currentData.length > strokeHistory.length) {
-              setStrokeHistory(currentData)
-            }
-          } else {
-            setDebugInfo("Error: Invalid signature data format")
-            console.error("Invalid signature data format:", signatureData)
-          }
-        } catch (error) {
-          setDebugInfo(`Error capturing signature: ${error}`)
-          console.error("Error capturing signature:", error)
-        }
-      }
-    }
-  }
-
-  // Force capture signature on mount and when canvas changes
+  // Initialize canvas
   useEffect(() => {
-    const captureInitialSignature = () => {
-      if (sigCanvas.current && !sigCanvas.current.isEmpty()) {
-        try {
-          const trimmedCanvas = sigCanvas.current.getTrimmedCanvas()
-          const signatureData = trimmedCanvas.toDataURL("image/png")
+    const canvas = canvasRef.current
+    if (!canvas) return
 
-          if (signatureData && signatureData.startsWith("data:image/")) {
-            form.setValue("signatureData", signatureData, {
-              shouldValidate: true,
-              shouldDirty: true,
-              shouldTouch: true,
-            })
-            onSignatureEnd(signatureData)
-            setIsSigned(true)
-            setDebugInfo(`Initial capture: ${signatureData.substring(0, 20)}...`)
-          }
-        } catch (error) {
-          console.error("Error capturing initial signature:", error)
-        }
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    // Set canvas dimensions
+    canvas.width = canvasWidth
+    canvas.height = canvasHeight
+
+    // Clear canvas and set background
+    ctx.fillStyle = "white"
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    // Set drawing style
+    ctx.lineWidth = 2
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
+    ctx.strokeStyle = "black"
+  }, [canvasWidth, canvasHeight])
+
+  const getCoordinates = (event: MouseEvent | TouchEvent) => {
+    if (!canvasRef.current) return { x: 0, y: 0 }
+
+    const canvas = canvasRef.current
+    const rect = canvas.getBoundingClientRect()
+
+    if ("touches" in event) {
+      // Touch event
+      return {
+        x: event.touches[0].clientX - rect.left,
+        y: event.touches[0].clientY - rect.top,
+      }
+    } else {
+      // Mouse event
+      return {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
       }
     }
+  }
 
-    // Small delay to ensure canvas is ready
-    const timer = setTimeout(captureInitialSignature, 500)
-    return () => clearTimeout(timer)
-  }, [form, onSignatureEnd, canvasWidth, canvasHeight])
+  const startDrawing = (event: React.MouseEvent | React.TouchEvent) => {
+    event.preventDefault()
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    setIsDrawing(true)
+    const coords = getCoordinates(event.nativeEvent)
+    setLastPos(coords)
+  }
+
+  const draw = (event: React.MouseEvent | React.TouchEvent) => {
+    event.preventDefault()
+    if (!isDrawing || !canvasRef.current) return
+
+    const ctx = canvasRef.current.getContext("2d")
+    if (!ctx) return
+
+    const currentPos = getCoordinates(event.nativeEvent)
+
+    ctx.beginPath()
+    ctx.moveTo(lastPos.x, lastPos.y)
+    ctx.lineTo(currentPos.x, currentPos.y)
+    ctx.stroke()
+
+    setLastPos(currentPos)
+    setIsSigned(true)
+  }
+
+  const endDrawing = () => {
+    setIsDrawing(false)
+    if (isSigned) {
+      captureSignature()
+    }
+  }
+
+  const clearSignature = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    ctx.fillStyle = "white"
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    setIsSigned(false)
+    form.setValue("signatureData", "", { shouldValidate: true })
+    onSignatureEnd("")
+    setDebugInfo("Signature cleared")
+  }
+
+  const captureSignature = () => {
+    try {
+      const canvas = canvasRef.current
+      if (!canvas) {
+        setDebugInfo("Error: Canvas not found")
+        return
+      }
+
+      // Check if canvas is empty (all white)
+      const ctx = canvas.getContext("2d")
+      if (!ctx) {
+        setDebugInfo("Error: Could not get canvas context")
+        return
+      }
+
+      // Get the signature data
+      const signatureData = canvas.toDataURL("image/png")
+
+      if (!signatureData || !signatureData.startsWith("data:image/")) {
+        setDebugInfo("Error: Invalid signature data format")
+        return
+      }
+
+      // Set the form value
+      form.setValue("signatureData", signatureData, {
+        shouldValidate: true,
+        shouldDirty: true,
+        shouldTouch: true,
+      })
+
+      onSignatureEnd(signatureData)
+      setIsSigned(true)
+      setDebugInfo(`Signature captured: ${signatureData.substring(0, 20)}...`)
+    } catch (error) {
+      setDebugInfo(`Error capturing signature: ${error}`)
+      console.error("Error capturing signature:", error)
+    }
+  }
 
   const handleIpReceived = (ip: string) => {
     setIpAddress(ip)
     form.setValue("ipAddress", ip)
-  }
-
-  // Manual capture button for troubleshooting
-  const manualCapture = () => {
-    if (sigCanvas.current && !sigCanvas.current.isEmpty()) {
-      try {
-        const trimmedCanvas = sigCanvas.current.getTrimmedCanvas()
-        const signatureData = trimmedCanvas.toDataURL("image/png")
-
-        if (signatureData && signatureData.startsWith("data:image/")) {
-          form.setValue("signatureData", signatureData, {
-            shouldValidate: true,
-            shouldDirty: true,
-            shouldTouch: true,
-          })
-          onSignatureEnd(signatureData)
-          setIsSigned(true)
-          setDebugInfo(`Manual capture: ${signatureData.substring(0, 20)}...`)
-        } else {
-          setDebugInfo("Manual capture error: Invalid data format")
-        }
-      } catch (error) {
-        setDebugInfo(`Manual capture error: ${error}`)
-        console.error("Error in manual capture:", error)
-      }
-    } else {
-      setDebugInfo("Manual capture: Canvas is empty")
-    }
   }
 
   return (
@@ -201,25 +202,19 @@ export default function SignatureStep({ form, onSignatureEnd }: SignatureStepPro
       <div className="border rounded-md p-4 bg-white" ref={containerRef}>
         <div className="mb-4">
           <div className="border-b border-dashed border-gray-300 mb-2 relative">
-            <SignatureCanvas
-              ref={sigCanvas}
-              penColor="black"
-              canvasProps={{
-                width: canvasWidth,
-                height: canvasHeight,
-                className: "signature-canvas",
-                style: {
-                  touchAction: "none",
-                  width: `${canvasWidth}px`,
-                  height: `${canvasHeight}px`,
-                },
-              }}
-              backgroundColor="white"
-              minWidth={1}
-              maxWidth={2.5}
-              velocityFilterWeight={0.7}
-              onEnd={handleEnd}
-              onBegin={handleBegin}
+            <canvas
+              ref={canvasRef}
+              width={canvasWidth}
+              height={canvasHeight}
+              className="touch-none"
+              style={{ width: `${canvasWidth}px`, height: `${canvasHeight}px` }}
+              onMouseDown={startDrawing}
+              onMouseMove={draw}
+              onMouseUp={endDrawing}
+              onMouseLeave={endDrawing}
+              onTouchStart={startDrawing}
+              onTouchMove={draw}
+              onTouchEnd={endDrawing}
             />
             {!isSigned && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -230,34 +225,21 @@ export default function SignatureStep({ form, onSignatureEnd }: SignatureStepPro
         </div>
 
         <div className="flex justify-between space-x-2">
-          <Button type="button" variant="secondary" size="sm" onClick={manualCapture} className="flex items-center">
+          <Button type="button" variant="secondary" size="sm" onClick={captureSignature} className="flex items-center">
             Capture Signature
           </Button>
 
-          <div className="flex space-x-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={undoLastStroke}
-              disabled={strokeHistory.length === 0}
-              className="flex items-center"
-            >
-              <UndoIcon className="h-4 w-4 mr-1" />
-              Undo
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={clearSignature}
-              disabled={!isSigned}
-              className="flex items-center"
-            >
-              <Trash2Icon className="h-4 w-4 mr-1" />
-              Clear
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={clearSignature}
+            disabled={!isSigned}
+            className="flex items-center"
+          >
+            <Trash2Icon className="h-4 w-4 mr-1" />
+            Clear
+          </Button>
         </div>
       </div>
 

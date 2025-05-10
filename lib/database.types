@@ -59,6 +59,7 @@ export interface Database {
           photo_consent: boolean;
           first_aid_consent: boolean;
           membership_option: string;
+          branch_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -81,6 +82,7 @@ export interface Database {
           photo_consent?: boolean;
           first_aid_consent?: boolean;
           membership_option: string;
+          branch_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -103,6 +105,36 @@ export interface Database {
           photo_consent?: boolean;
           first_aid_consent?: boolean;
           membership_option?: string;
+          branch_id?: string | null;
+          created_at?: string;
+        };
+      };
+      branches: {
+        Row: {
+          id: string;
+          name: string;
+          address: string | null;
+          post_code: string | null;
+          phone: string | null;
+          email: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          name: string;
+          address?: string | null;
+          post_code?: string | null;
+          phone?: string | null;
+          email?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          address?: string | null;
+          post_code?: string | null;
+          phone?: string | null;
+          email?: string | null;
           created_at?: string;
         };
       };
