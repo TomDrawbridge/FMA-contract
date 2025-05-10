@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from "react"
 import type { UseFormReturn } from "react-hook-form"
-import { FormField, FormItem, FormControl } from "@/components/ui/form"
+import { FormField, FormItem, FormControl, FormMessage } from "@/components/ui/form"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import SignatureCanvas from "react-signature-canvas"
@@ -187,6 +187,9 @@ export default function SignatureStep({ form, onSignatureEnd }: SignatureStepPro
       ) : (
         <p className="text-sm text-amber-600">Please sign above to continue</p>
       )}
+      {form.formState.errors.signatureData && (
+        <p className="text-sm text-red-500 mt-1">{form.formState.errors.signatureData.message}</p>
+      )}
 
       <div className="mt-4">
         <FormField
@@ -214,6 +217,7 @@ export default function SignatureStep({ form, onSignatureEnd }: SignatureStepPro
                 >
                   I agree to the terms and conditions and confirm that the information provided is accurate
                 </label>
+                <FormMessage />
               </div>
             </FormItem>
           )}

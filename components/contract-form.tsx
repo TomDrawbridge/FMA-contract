@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
-import { supabase } from "@/lib/supabase"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -181,6 +180,75 @@ export default function ContractForm() {
     return () => subscription.unsubscribe()
   }, [form])
 
+  // Add these validation functions after the form declaration
+  const validateMemberInfo = async () => {
+    const result = await form.trigger(["memberName", "package", "sport", "day", "time", "dateOfBirth", "gender"])
+    return result
+  }
+
+  const validateGuardianInfo = async () => {
+    const result = await form.trigger([
+      "guardianName",
+      "guardianEmail",
+      "guardianAddress",
+      "guardianPostCode",
+      "guardianMobilePhone",
+      "guardianRelationship",
+    ])
+    return result
+  }
+
+  const validateEmergencyContact = async () => {
+    const result = await form.trigger([
+      "emergencyName",
+      "emergencyAddress",
+      "emergencyPostCode",
+      "emergencyMobilePhone",
+      "emergencyRelationship",
+    ])
+    return result
+  }
+
+  const validateMedicalInfo = async () => {
+    // Medical info has conditional fields, so we need to check them based on conditions
+    const fieldsToValidate = ["hasMedicalConditions", "hasAllergies", "hasInjury"]
+
+    if (form.getValues("hasMedicalConditions")) {
+      fieldsToValidate.push("medicalConditionsDetails")
+    }
+
+    if (form.getValues("hasAllergies")) {
+      fieldsToValidate.push("allergiesDetails")
+    }
+
+    if (form.getValues("hasInjury")) {
+      fieldsToValidate.push("injuryDetails")
+    }
+
+    const result = await form.trigger(fieldsToValidate)
+    return result
+  }
+
+  const validateConsent = async () => {
+    // Consent fields are optional checkboxes, so they don't need validation
+    return true
+  }
+
+  const validatePaymentInfo = async () => {
+    const result = await form.trigger(["membershipOption"])
+    return result
+  }
+
+  const validateContract = async () => {
+    const result = await form.trigger(["contractRead"])
+    return result
+  }
+
+  const validateSignature = async () => {
+    const result = await form.trigger(["contractAgreed", "signatureData"])
+    return result
+  }
+
   const steps = [
     { id: "member-info", label: "Member Info" },
     { id: "guardian-info", label: "Guardian Info" },
@@ -195,12 +263,53 @@ export default function ContractForm() {
   const currentStepIndex = steps.findIndex((step) => step.id === activeStep)
   const progress = ((currentStepIndex + 1) / steps.length) * 100
 
-  const nextStep = () => {
+  const nextStep = async () => {
     const currentIndex = steps.findIndex((step) => step.id === activeStep)
-    if (currentIndex < steps.length - 1) {
+
+    // Validate the current step
+    let isValid = false
+
+    switch (activeStep) {
+      case "member-info":
+        isValid = await validateMemberInfo()
+        break
+      case "guardian-info":
+        isValid = await validateGuardianInfo()
+        break
+      case "emergency-contact":
+        isValid = await validateEmergencyContact()
+        break
+      case "medical-info":
+        isValid = await validateMedicalInfo()
+        break
+      case "consent":
+        isValid = await validateConsent()
+        break
+      case "payment-info":
+        isValid = await validatePaymentInfo()
+        break
+      case "contract":
+        isValid = await validateContract()
+        break
+      case "signature":
+        isValid = await validateSignature()
+        break
+      default:
+        isValid = true
+    }
+
+    // Only proceed to the next step if validation passes
+    if (isValid && currentIndex < steps.length - 1) {
       setActiveStep(steps[currentIndex + 1].id)
       // Scroll to top when changing steps
       window.scrollTo(0, 0)
+    } else if (!isValid) {
+      // Show a toast message if validation fails
+      toast({
+        title: "Please fix the errors",
+        description: "Please complete all required fields before proceeding.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -229,155 +338,28 @@ export default function ContractForm() {
       setSubmissionError(null)
       setDebugInfo(null)
 
-      // Check if Supabase is properly initialized
-      if (!supabase) {
-        throw new Error("Supabase client is not initialized")
+      // Add user agent to the form data
+      const formDataWithUserAgent = {
+        ...data,
+        userAgent: navigator.userAgent,
       }
 
-      // Log Supabase URL and connection info
-      console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
-      console.log("Supabase Anon Key set:", !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-
-      // Test connection before proceeding
-      const { data: testData, error: testError } = await supabase
-        .from("users")
-        .select("count", { count: "exact", head: true })
-
-      if (testError) {
-        console.error("Supabase connection test failed:", testError)
-        setDebugInfo({ type: "connectionError", error: testError })
-        throw new Error(`Connection test failed: ${testError.message}`)
-      } else {
-        console.log("Supabase connection successful")
-      }
-
-      // Save form data to Supabase with detailed error handling
-      console.log("Inserting user data...")
-      const {
-        data: userData,
-        error: userError,
-        status: userStatus,
-      } = await supabase
-        .from("users")
-        .insert({
-          name: data.guardianName,
-          email: data.guardianEmail,
-          address: data.guardianAddress,
-          post_code: data.guardianPostCode,
-          home_phone: data.guardianHomePhone || null,
-          mobile_phone: data.guardianMobilePhone,
-          work_phone: data.guardianWorkPhone || null,
-        })
-        .select()
-
-      if (userError) {
-        console.error("Error inserting user:", userError)
-        console.error("Error details:", {
-          message: userError.message,
-          details: userError.details,
-          hint: userError.hint,
-          code: userError.code,
-          status: userStatus,
-        })
-        setDebugInfo({
-          type: "userError",
-          error: userError,
-          status: userStatus,
-          details: {
-            message: userError.message,
-            details: userError.details,
-            hint: userError.hint,
-            code: userError.code,
-          },
-        })
-        throw userError
-      }
-
-      if (!userData || userData.length === 0) {
-        const error = new Error("No user data returned after insertion")
-        setDebugInfo({ type: "noUserData" })
-        throw error
-      }
-
-      const userId = userData[0].id
-      console.log("User created with ID:", userId)
-
-      // Save contract signature
-      console.log("Inserting signature data...")
-      const { error: signatureError } = await supabase.from("signatures").insert({
-        user_id: userId,
-        signature_data: data.signatureData,
-        ip_address: data.ipAddress,
-        user_agent: navigator.userAgent,
+      // Submit form data to the API route
+      const response = await fetch("/api/submit-form", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formDataWithUserAgent),
       })
 
-      if (signatureError) {
-        console.error("Error inserting signature:", signatureError)
-        setDebugInfo({ type: "signatureError", error: signatureError })
-        throw signatureError
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to submit form")
       }
 
-      // Save member information
-      console.log("Inserting member data...")
-      const { error: memberError } = await supabase.from("members").insert({
-        user_id: userId,
-        name: data.memberName,
-        package: data.package,
-        sport: data.sport,
-        day: data.day,
-        time: data.time,
-        date_of_birth: data.dateOfBirth,
-        gender: data.gender,
-        sibling_attends: data.siblingAttends,
-        has_medical_conditions: data.hasMedicalConditions,
-        medical_conditions_details: data.hasMedicalConditions ? data.medicalConditionsDetails : null,
-        has_allergies: data.hasAllergies,
-        allergies_details: data.hasAllergies ? data.allergiesDetails : null,
-        has_injury: data.hasInjury,
-        injury_details: data.hasInjury ? data.injuryDetails : null,
-        photo_consent: data.photoConsent,
-        first_aid_consent: data.firstAidConsent,
-        membership_option: data.membershipOption,
-      })
-
-      if (memberError) {
-        console.error("Error inserting member:", memberError)
-        setDebugInfo({ type: "memberError", error: memberError })
-        throw memberError
-      }
-
-      // Save emergency contact
-      console.log("Inserting emergency contact data...")
-      const { error: emergencyError } = await supabase.from("emergency_contacts").insert({
-        user_id: userId,
-        name: data.emergencyName,
-        address: data.emergencyAddress,
-        post_code: data.emergencyPostCode,
-        home_phone: data.emergencyHomePhone || null,
-        mobile_phone: data.emergencyMobilePhone,
-        work_phone: data.emergencyWorkPhone || null,
-        relationship: data.emergencyRelationship,
-      })
-
-      if (emergencyError) {
-        console.error("Error inserting emergency contact:", emergencyError)
-        setDebugInfo({ type: "emergencyError", error: emergencyError })
-        throw emergencyError
-      }
-
-      // Save contract acceptance
-      console.log("Inserting contract acceptance data...")
-      const { error: contractError } = await supabase.from("contract_acceptances").insert({
-        user_id: userId,
-        accepted_at: new Date().toISOString(),
-        contract_version: "v1",
-      })
-
-      if (contractError) {
-        console.error("Error inserting contract acceptance:", contractError)
-        setDebugInfo({ type: "contractError", error: contractError })
-        throw contractError
-      }
+      console.log("Form submission successful:", result)
 
       // Send confirmation email with PDF attachment
       console.log("Sending confirmation email...")
@@ -410,18 +392,10 @@ export default function ContractForm() {
       // Redirect to payment page (GoCardless)
       console.log("Redirecting to payment page...")
       setTimeout(() => {
-        router.push(`/payment?user_id=${userId}`)
+        router.push(`/payment?user_id=${result.userId}`)
       }, 2000)
     } catch (error: any) {
       console.error("Error submitting form:", error)
-      console.error("Error details:", {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-        code: error.code,
-        details: error.details,
-        hint: error.hint,
-      })
       setSubmissionError(error.message || "An unexpected error occurred. Please try again.")
       toast({
         title: "Error submitting form",

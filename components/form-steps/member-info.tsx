@@ -148,6 +148,7 @@ export default function MemberInfo({ form }: MemberInfoProps) {
               <div className="space-y-1 leading-none">
                 <FormLabel>A sibling also attends Academy</FormLabel>
               </div>
+              <FormMessage />
             </FormItem>
           )}
         />

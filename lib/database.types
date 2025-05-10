@@ -98,7 +98,7 @@ export interface Database {
           medical_conditions_details?: string | null
           has_allergies?: boolean
           allergies_details?: string | null
-          has_injury?: boolean
+          has_injury?: string
           injury_details?: string | null
           photo_consent?: boolean
           first_aid_consent?: boolean

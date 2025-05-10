@@ -1,36 +1,45 @@
 import { createClient } from "@supabase/supabase-js"
 import type { Database } from "./database.types"
 
-// Check if environment variables are available
-// Only use NEXT_PUBLIC_ prefixed variables on the client side
+// Client-side Supabase client - only uses anon key
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-if (typeof window !== "undefined") {
-  // Client-side code
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("Missing Supabase environment variables:", {
-      url: supabaseUrl ? "Set" : "Missing",
-      key: supabaseAnonKey ? "Set" : "Missing",
-    })
-  }
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Missing Supabase environment variables:", {
+    url: supabaseUrl ? "Set" : "Missing",
+    key: supabaseAnonKey ? "Set" : "Missing",
+  })
 }
 
 // Create a singleton instance of the Supabase client
-let supabase: any
+export const supabase = createClient<Database>(supabaseUrl || "", supabaseAnonKey || "", {
+  auth: {
+    persistSession: false, // We don't need auth for this form
+  },
+})
 
-// Only initialize if URL and key are available
-if (supabaseUrl && supabaseAnonKey) {
-  supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false, // We don't need auth for this form
-    },
+// Test the connection
+console.log("Testing Supabase connection...")
+supabase
+  .from("users")
+  .select("count", { count: "exact", head: true })
+  .then(({ count, error }) => {
+    if (error) {
+      console.error("Supabase connection test failed:", error)
+      console.error("Error details:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      })
+    } else {
+      console.log("Supabase connection successful, users count:", count)
+    }
   })
-} else {
-  console.error("Supabase client not initialized due to missing environment variables")
-}
-
-export { supabase }
+  .catch((err) => {
+    console.error("Supabase connection test error:", err)
+  })
 
 // Add a debug function to test the connection on demand
 export const testSupabaseConnection = async () => {
@@ -44,8 +53,7 @@ export const testSupabaseConnection = async () => {
 
   try {
     console.log("Testing Supabase connection...")
-    console.log("URL:", supabaseUrl)
-    console.log("Key set:", !!supabaseAnonKey)
+    console.log("URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
 
     const { data, error, status } = await supabase.from("users").select("count", { count: "exact", head: true })
 

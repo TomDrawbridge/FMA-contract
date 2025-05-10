@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useEffect, useRef, useState } from "react"
 import type { UseFormReturn } from "react-hook-form"
-import { FormField, FormItem, FormControl } from "@/components/ui/form"
+import { FormField, FormItem, FormControl, FormMessage } from "@/components/ui/form"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { InfoIcon } from "lucide-react"
@@ -169,6 +169,7 @@ export default function ContractText({ form }: ContractTextProps) {
                   I confirm that I have read the terms and conditions
                 </label>
               </div>
+              <FormMessage />
             </FormItem>
           )}
         />
