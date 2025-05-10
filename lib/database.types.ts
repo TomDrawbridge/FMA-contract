@@ -59,6 +59,7 @@ export interface Database {
           photo_consent: boolean
           first_aid_consent: boolean
           membership_option: string
+          branch_id: string | null
           created_at: string
         }
         Insert: {
@@ -81,6 +82,7 @@ export interface Database {
           photo_consent?: boolean
           first_aid_consent?: boolean
           membership_option: string
+          branch_id?: string | null
           created_at?: string
         }
         Update: {
@@ -98,11 +100,41 @@ export interface Database {
           medical_conditions_details?: string | null
           has_allergies?: boolean
           allergies_details?: string | null
-          has_injury?: boolean
+          has_injury?: string
           injury_details?: string | null
           photo_consent?: boolean
           first_aid_consent?: boolean
           membership_option?: string
+          branch_id?: string | null
+          created_at?: string
+        }
+      }
+      branches: {
+        Row: {
+          id: string
+          name: string
+          address: string | null
+          post_code: string | null
+          phone: string | null
+          email: string | null
+          created_at: string
+        }
+        Insert: {
+          id: string
+          name: string
+          address?: string | null
+          post_code?: string | null
+          phone?: string | null
+          email?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          address?: string | null
+          post_code?: string | null
+          phone?: string | null
+          email?: string | null
           created_at?: string
         }
       }
@@ -190,6 +222,32 @@ export interface Database {
           user_id?: string
           accepted_at?: string
           contract_version?: string
+          created_at?: string
+        }
+      }
+      email_logs: {
+        Row: {
+          id: string
+          recipient_email: string
+          recipient_name: string
+          subject: string
+          sent_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          recipient_email: string
+          recipient_name: string
+          subject: string
+          sent_at: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          recipient_email?: string
+          recipient_name?: string
+          subject?: string
+          sent_at?: string
           created_at?: string
         }
       }

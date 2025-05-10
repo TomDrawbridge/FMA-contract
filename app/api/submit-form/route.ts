@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to insert signature", details: signatureError }, { status: 500 })
     }
 
-    // Insert member data
+    // Insert member data with branch_id
     const { error: memberError } = await supabase.from("members").insert({
       user_id: userId,
       name: formData.memberName,
@@ -68,6 +68,7 @@ export async function POST(request: Request) {
       photo_consent: formData.photoConsent,
       first_aid_consent: formData.firstAidConsent,
       membership_option: formData.membershipOption,
+      branch_id: formData.branchId,
     })
 
     if (memberError) {

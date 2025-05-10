@@ -69,6 +69,9 @@ const formSchema = z.object({
   // Payment Information
   membershipOption: z.enum(["annual", "monthly"]),
 
+  // Branch ID
+  branchId: z.string().min(1, { message: "Branch is required" }),
+
   // Add this new field
   ipAddress: z.string().default("127.0.0.1"),
 
@@ -84,7 +87,11 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-export default function ContractForm() {
+interface ContractFormProps {
+  branchId: string
+}
+
+export default function ContractForm({ branchId }: ContractFormProps) {
   const [activeStep, setActiveStep] = useState("member-info")
   const [signatureData, setSignatureData] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -133,6 +140,9 @@ export default function ContractForm() {
       firstAidConsent: true,
 
       membershipOption: "monthly",
+
+      // Set the branch ID from props
+      branchId: branchId,
 
       // Add this new field
       ipAddress: "127.0.0.1",
@@ -332,6 +342,7 @@ export default function ContractForm() {
     console.log("Form submitted with data:", data)
     console.log("Contract agreed:", data.contractAgreed)
     console.log("Signature data length:", data.signatureData?.length || 0)
+    console.log("Branch ID:", data.branchId)
 
     try {
       setIsSubmitting(true)
@@ -374,6 +385,7 @@ export default function ContractForm() {
             name: data.guardianName,
             memberName: data.memberName,
             signatureData: data.signatureData,
+            branchId: data.branchId,
           }),
         })
 
@@ -558,6 +570,7 @@ export default function ContractForm() {
                     <p>Contract Read: {form.getValues().contractRead ? "Yes" : "No"}</p>
                     <p>Contract Agreed: {form.getValues().contractAgreed ? "Yes" : "No"}</p>
                     <p>Signature: {form.getValues().signatureData ? "Provided" : "Not provided"}</p>
+                    <p>Branch ID: {form.getValues().branchId}</p>
                     <p>Form Valid: {Object.keys(form.formState.errors).length === 0 ? "Yes" : "No"}</p>
                     {Object.keys(form.formState.errors).length > 0 && (
                       <div className="mt-2">
