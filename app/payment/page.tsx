@@ -29,26 +29,59 @@ export default function PaymentPage() {
         }
 
         // Get payment URL from API
-        const response = await fetch(`/api/gocardless?user_id=${userId}`)
-        const data = await response.json()
+        let redirectUrl: string | null = null
 
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to set up payment")
+        try {
+          const response = await fetch(`/api/gocardless?user_id=${userId}`)
+
+          // Check if the response is JSON
+          const contentType = response.headers.get("content-type")
+          if (contentType && contentType.includes("application/json")) {
+            const data = await response.json()
+
+            if (!response.ok) {
+              throw new Error(data.error || "Failed to set up payment")
+            }
+
+            redirectUrl = data.redirect_url
+          } else {
+            // If not JSON, get the text and log it
+            const text = await response.text()
+            console.error("Non-JSON response:", text)
+            throw new Error("Invalid response from server")
+          }
+        } catch (fetchError) {
+          console.error("Error fetching payment URL:", fetchError)
+          // Fall back to demo URL
+          redirectUrl = "https://pay.gocardless.com/demo"
+          setError("Could not connect to payment provider. Using demo mode.")
         }
 
-        // Get membership option from URL
-        const membershipOption = new URL(data.redirect_url).searchParams.get("plan") || "monthly"
-
         // Set membership details
+        let membershipOption = "monthly"
+
+        try {
+          const membershipResponse = await fetch(`/api/membership-details?user_id=${userId}`)
+          if (membershipResponse.ok) {
+            const membershipData = await membershipResponse.json()
+            membershipOption = membershipData.membership_option || "monthly"
+          }
+        } catch (membershipError) {
+          console.error("Error fetching membership details:", membershipError)
+          // Continue with default
+        }
+
         setMembershipDetails({
           option: membershipOption,
           amount: membershipOption === "annual" ? "£50.00/year" : "£3.00/month (£20.00 initial fee)",
         })
 
-        setPaymentUrl(data.redirect_url)
+        setPaymentUrl(redirectUrl)
       } catch (error: any) {
         console.error("Payment setup error:", error)
         setError(error.message || "Failed to set up payment")
+        // Set a fallback URL so the UI doesn't break completely
+        setPaymentUrl("https://pay.gocardless.com/demo")
       } finally {
         setIsLoading(false)
       }
@@ -77,27 +110,31 @@ export default function PaymentPage() {
                 <div className="bg-red-50 p-4 rounded-md text-red-800">
                   <div className="flex items-center">
                     <AlertCircle className="h-5 w-5 mr-2 text-red-600" />
-                    <h3 className="font-medium">Error</h3>
+                    <h3 className="font-medium">Warning</h3>
                   </div>
                   <p className="text-sm mt-1">{error}</p>
-                  <p className="text-sm mt-2">Please contact support for assistance.</p>
-                </div>
-              ) : (
-                <>
-                  {membershipDetails && (
-                    <div className="bg-blue-50 p-4 rounded-md mb-4">
-                      <h3 className="font-medium text-blue-800 mb-2">Your Membership Details</h3>
-                      <div className="text-blue-700 space-y-1">
-                        <p>
-                          <span className="font-medium">Plan:</span>{" "}
-                          {membershipDetails.option === "monthly" ? "Monthly Membership" : "Annual Membership"}
-                        </p>
-                        <p>
-                          <span className="font-medium">Amount:</span> {membershipDetails.amount}
-                        </p>
-                      </div>
-                    </div>
+                  {paymentUrl && (
+                    <p className="text-sm mt-2">
+                      You can continue to the demo payment page, but it will not process a real payment.
+                    </p>
                   )}
+                </div>
+              ) : null}
+
+              {!isLoading && membershipDetails && (
+                <>
+                  <div className="bg-blue-50 p-4 rounded-md mb-4">
+                    <h3 className="font-medium text-blue-800 mb-2">Your Membership Details</h3>
+                    <div className="text-blue-700 space-y-1">
+                      <p>
+                        <span className="font-medium">Plan:</span>{" "}
+                        {membershipDetails.option === "monthly" ? "Monthly Membership" : "Annual Membership"}
+                      </p>
+                      <p>
+                        <span className="font-medium">Amount:</span> {membershipDetails.amount}
+                      </p>
+                    </div>
+                  </div>
 
                   <p className="text-sm text-gray-500">
                     You will be redirected to GoCardless to securely set up your direct debit payment. Your information
