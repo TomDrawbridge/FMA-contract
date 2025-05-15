@@ -7,6 +7,7 @@ interface PaymentLinkParams {
   description?: string
   redirectUrl?: string
   exitUrl?: string
+  apiKey?: string // Add API key parameter
 }
 
 /**
@@ -22,6 +23,7 @@ export async function createGoCardlessPaymentLink(params: PaymentLinkParams): Pr
     description,
     redirectUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/payment/success`,
     exitUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/payment/cancelled`,
+    apiKey = process.env.GOCARDLESS_API_KEY, // Use provided key or fall back to env var
   } = params
 
   try {
@@ -32,7 +34,6 @@ export async function createGoCardlessPaymentLink(params: PaymentLinkParams): Pr
     const paymentDescription = description || `FMA ${membershipOption === "annual" ? "Annual" : "Monthly"} Membership`
 
     // Get the GoCardless API key from environment variables
-    const apiKey = process.env.GOCARDLESS_API_KEY
     if (!apiKey) {
       throw new Error("GoCardless API key is not configured")
     }

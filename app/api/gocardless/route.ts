@@ -20,7 +20,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Get member data to determine membership option
+    // Get member data to determine membership option and branch_id
     const { data: memberData, error: memberError } = await supabase
       .from("members")
       .select("membership_option, name, branch_id")
@@ -31,10 +31,21 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Member data not found" }, { status: 404 })
     }
 
+    // Get branch data including the GoCardless API key
+    const { data: branchData, error: branchError } = await supabase
+      .from("branches")
+      .select("gocardless_api_key")
+      .eq("id", memberData.branch_id)
+      .single()
+
+    if (branchError) {
+      return NextResponse.json({ error: "Branch data not found" }, { status: 404 })
+    }
+
     // Get the base URL for redirects
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.headers.get("origin") || "http://localhost:3000"
 
-    // Create payment link using the real GoCardless API
+    // Create payment link using the branch-specific GoCardless API key if available
     const paymentLink = await createGoCardlessPaymentLink({
       userId,
       name: userData.name,
@@ -42,6 +53,7 @@ export async function GET(request: Request) {
       membershipOption: memberData.membership_option,
       redirectUrl: `${baseUrl}/payment/success?user_id=${userId}`,
       exitUrl: `${baseUrl}/payment/cancelled?user_id=${userId}`,
+      apiKey: branchData?.gocardless_api_key, // Use branch-specific API key
     })
 
     // Return the payment link
