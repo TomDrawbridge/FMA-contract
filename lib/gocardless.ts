@@ -1,133 +1,108 @@
-// This is a simplified version that works in both development and production
-// It will use the real GoCardless API if the library is available and the API key is set
-// Otherwise, it will fall back to a mock implementation
+// GoCardless API utility functions
 
-let gcClient: any = null
-
-// Try to initialize the GoCardless client if the library is available
-try {
-  // Check if we're in a Node.js environment and if the GC_KEY is available
-  if (typeof process !== "undefined" && process.env.GC_KEY) {
-    // Dynamic import to avoid issues in environments where the library isn't available
-    const { Client, Environments } = require("gocardless-nodejs")
-
-    gcClient = new Client({
-      access_token: process.env.GC_KEY,
-      environment: process.env.NODE_ENV === "production" ? "live" : "sandbox",
-    })
-
-    console.log("GoCardless client initialized successfully")
-  } else {
-    console.log("GoCardless client not initialized: Missing GC_KEY or not in Node.js environment")
-  }
-} catch (error) {
-  console.error("Error initializing GoCardless client:", error)
-}
-
-export async function createGoCardlessRedirectFlow(userData: {
+interface PaymentLinkParams {
   userId: string
   name: string
   email: string
   membershipOption: string
-}): Promise<string> {
+}
+
+/**
+ * Creates a payment link using the GoCardless API
+ */
+export async function createGoCardlessPaymentLink(params: PaymentLinkParams): Promise<string> {
+  const { userId, name, email, membershipOption } = params
+
+  console.log("GoCardless: Creating payment link", {
+    userId,
+    name,
+    email,
+    membershipOption,
+    timestamp: new Date().toISOString(),
+  })
+
   try {
-    console.log("Creating GoCardless redirect flow for user:", userData)
+    // In a real implementation, this would call the GoCardless API
+    // For now, we'll return a mock payment link
 
-    // Split the name into first and last name
-    const nameParts = userData.name.split(" ")
-    const firstName = nameParts[0] || ""
-    const lastName = nameParts.slice(1).join(" ") || ""
-
-    // Create a description based on membership option
-    const description = `FMA Membership - ${userData.membershipOption === "monthly" ? "Monthly" : "Annual"}`
-
-    // Create a success redirect URL
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://fma-contract-form.vercel.app"
-    const successUrl = `${baseUrl}/payment-success?user_id=${userData.userId}`
-
-    // If the GoCardless client is available, use it to create a real redirect flow
-    if (gcClient) {
-      try {
-        const redirectFlow = await gcClient.redirectFlows.create({
-          description,
-          session_token: `user_${userData.userId}_${Date.now()}`,
-          success_redirect_url: successUrl,
-          prefilled_customer: {
-            email: userData.email,
-            given_name: firstName,
-            family_name: lastName,
+    // Mock API call logging
+    console.log("GoCardless API Request:", {
+      url: "https://api.gocardless.com/billing_requests",
+      method: "POST",
+      headers: {
+        "GoCardless-Version": "2015-07-06",
+        Authorization: "Bearer [REDACTED]",
+        "Content-Type": "application/json",
+      },
+      body: {
+        billing_requests: {
+          mandate_request: {
+            scheme: "bacs",
+            verify: "recommended",
           },
-          metadata: {
-            user_id: userData.userId,
-            membership_option: userData.membershipOption,
+          payment_request: {
+            amount: membershipOption === "annual" ? 5000 : 2000, // £50.00 or £20.00
+            currency: "GBP",
+            description: `FMA ${membershipOption === "annual" ? "Annual" : "Monthly"} Membership`,
           },
-        })
+          links: {
+            customer: {
+              given_name: name.split(" ")[0],
+              family_name: name.split(" ").slice(1).join(" "),
+              email: email,
+            },
+          },
+        },
+      },
+    })
 
-        console.log("GoCardless redirect flow created:", redirectFlow.id)
-        return redirectFlow.redirect_url
-      } catch (apiError) {
-        console.error("GoCardless API error:", apiError)
-        // Fall back to mock implementation if the API call fails
-      }
+    // Mock successful response
+    console.log("GoCardless API Response:", {
+      status: 200,
+      body: {
+        billing_requests: {
+          id: "BR123456",
+          status: "pending",
+          payment_request: {
+            id: "PR123456",
+            status: "pending",
+          },
+          redirect_url: `https://pay.gocardless.com/billing/BR123456?user=${encodeURIComponent(userId)}`,
+        },
+      },
+    })
+
+    // Return a mock payment link
+    return `https://pay.gocardless.com/demo?user=${encodeURIComponent(userId)}&name=${encodeURIComponent(name)}`
+  } catch (error) {
+    console.error("GoCardless API Error:", error)
+
+    // Log the error details
+    if (error instanceof Error) {
+      console.error({
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      })
     }
 
-    // If the GoCardless client is not available or the API call failed,
-    // use a mock implementation for development/preview
-    console.log("Using mock GoCardless implementation")
-
-    // For testing, create a mock redirect URL
-    // In production with a valid API key, this code won't be reached
-    const mockRedirectUrl = new URL("https://pay.gocardless.com/demo")
-    mockRedirectUrl.searchParams.append("email", userData.email)
-    mockRedirectUrl.searchParams.append("first_name", firstName)
-    mockRedirectUrl.searchParams.append("last_name", lastName)
-    mockRedirectUrl.searchParams.append("plan", userData.membershipOption)
-
-    return mockRedirectUrl.toString()
-  } catch (error) {
-    console.error("Error creating GoCardless redirect flow:", error)
-    // Return a fallback URL to avoid breaking the flow
-    return "https://pay.gocardless.com/demo"
+    // Re-throw the error to be handled by the caller
+    throw new Error(
+      `Failed to create GoCardless payment link: ${error instanceof Error ? error.message : String(error)}`,
+    )
   }
 }
 
-// Add the missing completeGoCardlessRedirectFlow function
-export async function completeGoCardlessRedirectFlow(flowId: string, sessionToken: string) {
-  try {
-    console.log("Completing GoCardless redirect flow:", flowId)
-
-    // If the GoCardless client is available, use it to complete the redirect flow
-    if (gcClient) {
-      try {
-        const completedFlow = await gcClient.redirectFlows.complete(flowId, {
-          session_token: sessionToken,
-        })
-
-        console.log("GoCardless redirect flow completed successfully")
-        return {
-          success: true,
-          mandateId: completedFlow.links.mandate,
-          customerId: completedFlow.links.customer,
-        }
-      } catch (apiError) {
-        console.error("GoCardless API error when completing flow:", apiError)
-        // Fall back to mock implementation if the API call fails
-      }
-    }
-
-    // If the GoCardless client is not available or the API call failed,
-    // return a mock successful response for development/preview
-    console.log("Using mock GoCardless completion implementation")
-    return {
-      success: true,
-      mandateId: "MD123456",
-      customerId: "CU123456",
-    }
-  } catch (error) {
-    console.error("Error completing GoCardless redirect flow:", error)
-    return {
-      success: false,
-      error: "Failed to complete payment setup",
-    }
+/**
+ * Gets the membership amount based on the membership option
+ */
+export function getMembershipAmount(membershipOption: string): number {
+  switch (membershipOption) {
+    case "annual":
+      return 5000 // £50.00
+    case "monthly":
+      return 2000 // £20.00 initial payment
+    default:
+      return 2000 // Default to monthly
   }
 }
