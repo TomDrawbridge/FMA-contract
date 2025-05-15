@@ -21,7 +21,6 @@ export default function SignatureStep({ form, onSignatureEnd }: SignatureStepPro
   const containerRef = useRef<HTMLDivElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [isSigned, setIsSigned] = useState(false)
-  const [ipAddress, setIpAddress] = useState("127.0.0.1")
   const [canvasWidth, setCanvasWidth] = useState(300)
   const [canvasHeight, setCanvasHeight] = useState(200)
   const [debugInfo, setDebugInfo] = useState<string>("")
@@ -121,10 +120,11 @@ export default function SignatureStep({ form, onSignatureEnd }: SignatureStepPro
   }
 
   const endDrawing = () => {
-    setIsDrawing(false)
-    if (isSigned) {
+    if (isDrawing && isSigned) {
+      // Only capture signature when drawing ends, not during drawing
       captureSignature()
     }
+    setIsDrawing(false)
   }
 
   const clearSignature = () => {
@@ -160,7 +160,7 @@ export default function SignatureStep({ form, onSignatureEnd }: SignatureStepPro
           return
         }
 
-        // Set the form value
+        // Set the form value - but don't log the entire signature data
         form.setValue("signatureData", signatureData, {
           shouldValidate: true,
           shouldDirty: true,
@@ -169,7 +169,8 @@ export default function SignatureStep({ form, onSignatureEnd }: SignatureStepPro
 
         onSignatureEnd(signatureData)
         setIsSigned(true)
-        setDebugInfo(`Signature captured: ${signatureData.substring(0, 20)}...`)
+        // Just log that it was captured, not the entire data
+        setDebugInfo("Signature captured successfully")
       } catch (error) {
         setDebugInfo(`Error capturing signature: ${error}`)
         console.error("Error capturing signature:", error)
@@ -181,13 +182,15 @@ export default function SignatureStep({ form, onSignatureEnd }: SignatureStepPro
   }
 
   const handleIpReceived = (ip: string) => {
-    setIpAddress(ip)
+    // Set the IP address only once when received
     form.setValue("ipAddress", ip)
   }
 
   return (
     <div className="space-y-6">
+      {/* GetIp component only runs once when mounted */}
       <GetIp onIpReceived={handleIpReceived} />
+
       <div className="text-xl font-semibold">Signature</div>
 
       <Alert variant="default" className="bg-blue-50 border-blue-200">
@@ -264,7 +267,6 @@ export default function SignatureStep({ form, onSignatureEnd }: SignatureStepPro
                 <Checkbox
                   checked={field.value}
                   onCheckedChange={(checked) => {
-                    console.log("Checkbox changed:", checked)
                     field.onChange(checked)
                   }}
                 />
@@ -274,7 +276,6 @@ export default function SignatureStep({ form, onSignatureEnd }: SignatureStepPro
                   className="font-medium cursor-pointer"
                   onClick={() => {
                     const newValue = !field.value
-                    console.log("Label clicked, setting to:", newValue)
                     field.onChange(newValue)
                   }}
                 >

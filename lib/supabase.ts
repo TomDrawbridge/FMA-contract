@@ -17,6 +17,10 @@ export const supabase = createClient<Database>(supabaseUrl || "", supabaseAnonKe
   auth: {
     persistSession: false, // We don't need auth for this form
   },
+  // Ensure we're not using any proxy for Supabase requests
+  global: {
+    fetch: (...args) => fetch(...args),
+  },
 })
 
 // Test the connection

@@ -5,20 +5,25 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useSearchParams } from "next/navigation"
+import { Loader2, CreditCard, AlertCircle } from "lucide-react"
 
 export default function PaymentPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [membershipDetails, setMembershipDetails] = useState<{
+    option: string
+    amount: string
+  } | null>(null)
   const searchParams = useSearchParams()
   const userId = searchParams.get("user_id")
 
   useEffect(() => {
     const setupPayment = async () => {
       try {
-        // If no user ID is provided, use a demo link
+        // If no user ID is provided, show an error
         if (!userId) {
-          setPaymentUrl("https://pay.gocardless.com/demo")
+          setError("No user ID provided. Please complete the registration form first.")
           setIsLoading(false)
           return
         }
@@ -30,6 +35,15 @@ export default function PaymentPage() {
         if (!response.ok) {
           throw new Error(data.error || "Failed to set up payment")
         }
+
+        // Get membership option from URL
+        const membershipOption = new URL(data.redirect_url).searchParams.get("plan") || "monthly"
+
+        // Set membership details
+        setMembershipDetails({
+          option: membershipOption,
+          amount: membershipOption === "annual" ? "£50.00/year" : "£3.00/month (£20.00 initial fee)",
+        })
 
         setPaymentUrl(data.redirect_url)
       } catch (error: any) {
@@ -61,12 +75,30 @@ export default function PaymentPage() {
                 </div>
               ) : error ? (
                 <div className="bg-red-50 p-4 rounded-md text-red-800">
-                  <h3 className="font-medium mb-1">Error</h3>
-                  <p className="text-sm">{error}</p>
+                  <div className="flex items-center">
+                    <AlertCircle className="h-5 w-5 mr-2 text-red-600" />
+                    <h3 className="font-medium">Error</h3>
+                  </div>
+                  <p className="text-sm mt-1">{error}</p>
                   <p className="text-sm mt-2">Please contact support for assistance.</p>
                 </div>
               ) : (
                 <>
+                  {membershipDetails && (
+                    <div className="bg-blue-50 p-4 rounded-md mb-4">
+                      <h3 className="font-medium text-blue-800 mb-2">Your Membership Details</h3>
+                      <div className="text-blue-700 space-y-1">
+                        <p>
+                          <span className="font-medium">Plan:</span>{" "}
+                          {membershipDetails.option === "monthly" ? "Monthly Membership" : "Annual Membership"}
+                        </p>
+                        <p>
+                          <span className="font-medium">Amount:</span> {membershipDetails.amount}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   <p className="text-sm text-gray-500">
                     You will be redirected to GoCardless to securely set up your direct debit payment. Your information
                     will be pre-filled based on the details you provided.
@@ -94,7 +126,15 @@ export default function PaymentPage() {
                   }
                 }}
               >
-                {isLoading ? "Setting up payment..." : "Continue to Payment"}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Setting up payment...
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="mr-2 h-4 w-4" /> Continue to Payment
+                  </>
+                )}
               </Button>
             </CardFooter>
           </Card>

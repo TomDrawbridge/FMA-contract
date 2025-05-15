@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase-server"
+import { createGoCardlessRedirectFlow } from "@/lib/gocardless"
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -19,25 +20,32 @@ export async function GET(request: Request) {
       throw new Error("User not found")
     }
 
-    // In a real implementation, you would use the GoCardless API to create a payment flow
-    // This is a simplified example
+    // Get member data to determine membership option
+    const { data: memberData, error: memberError } = await supabase
+      .from("members")
+      .select("membership_option")
+      .eq("user_id", userId)
+      .single()
 
-    // Example GoCardless redirect URL with prefilled data
-    const redirectUrl = new URL("https://pay.gocardless.com/demo")
-    redirectUrl.searchParams.append("name", userData.name)
-    redirectUrl.searchParams.append("email", userData.email)
+    if (memberError) {
+      console.error("Error fetching member data:", memberError)
+      throw new Error("Member data not found")
+    }
 
-    // Update user with GoCardless ID (in a real implementation)
-    // await supabase
-    //   .from("users")
-    //   .update({ gocardless_id: "GC_123456" })
-    //   .eq("id", userId)
-
-    return NextResponse.json({
-      redirect_url: redirectUrl.toString(),
+    // Create GoCardless redirect flow
+    const redirectUrl = await createGoCardlessRedirectFlow({
+      userId,
+      name: userData.name,
+      email: userData.email,
+      membershipOption: memberData.membership_option,
     })
-  } catch (error) {
+
+    // Return the redirect URL
+    return NextResponse.json({
+      redirect_url: redirectUrl,
+    })
+  } catch (error: any) {
     console.error("Error setting up GoCardless payment:", error)
-    return NextResponse.json({ error: "Failed to set up payment" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to set up payment", details: error.message }, { status: 500 })
   }
 }
