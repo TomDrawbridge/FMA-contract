@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase-server"
+import { createGoCardlessPaymentLink } from "@/lib/gocardless"
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -16,7 +17,6 @@ export async function GET(request: Request) {
     const { data: userData, error: userError } = await supabase.from("users").select("*").eq("id", userId).single()
 
     if (userError || !userData) {
-      console.error("User not found:", userError)
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
@@ -28,31 +28,28 @@ export async function GET(request: Request) {
       .single()
 
     if (memberError) {
-      console.error("Error fetching member data:", memberError)
       return NextResponse.json({ error: "Member data not found" }, { status: 404 })
     }
 
-    // For now, return a mock payment link for testing
-    // In production, this would call the GoCardless API
-    console.log("Creating payment link for:", {
+    // Get the base URL for redirects
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.headers.get("origin") || "http://localhost:3000"
+
+    // Create payment link using the real GoCardless API
+    const paymentLink = await createGoCardlessPaymentLink({
       userId,
       name: userData.name,
       email: userData.email,
       membershipOption: memberData.membership_option,
-      memberName: memberData.name,
-      branchId: memberData.branch_id,
+      redirectUrl: `${baseUrl}/payment/success?user_id=${userId}`,
+      exitUrl: `${baseUrl}/payment/cancelled?user_id=${userId}`,
     })
-
-    // Mock payment link - replace with actual GoCardless API call
-    const mockPaymentLink = `https://pay.gocardless.com/demo?user=${encodeURIComponent(userId)}&name=${encodeURIComponent(userData.name)}`
 
     // Return the payment link
     return NextResponse.json({
-      redirect_url: mockPaymentLink,
+      redirect_url: paymentLink,
       user_id: userId,
     })
   } catch (error: any) {
-    console.error("Error setting up GoCardless payment:", error)
     return NextResponse.json(
       {
         error: "Failed to set up payment",

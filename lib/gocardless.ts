@@ -1,91 +1,141 @@
-// GoCardless API utility functions
-
 interface PaymentLinkParams {
   userId: string
   name: string
   email: string
   membershipOption: string
+  amount?: number
+  description?: string
+  redirectUrl?: string
+  exitUrl?: string
 }
 
 /**
  * Creates a payment link using the GoCardless API
  */
 export async function createGoCardlessPaymentLink(params: PaymentLinkParams): Promise<string> {
-  const { userId, name, email, membershipOption } = params
-
-  console.log("GoCardless: Creating payment link", {
+  const {
     userId,
     name,
     email,
     membershipOption,
-    timestamp: new Date().toISOString(),
-  })
+    amount,
+    description,
+    redirectUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/payment/success`,
+    exitUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/payment/cancelled`,
+  } = params
 
   try {
-    // In a real implementation, this would call the GoCardless API
-    // For now, we'll return a mock payment link
+    // Determine the amount based on membership option or use the provided amount
+    const paymentAmount = amount || getMembershipAmount(membershipOption)
 
-    // Mock API call logging
-    console.log("GoCardless API Request:", {
-      url: "https://api.gocardless.com/billing_requests",
-      method: "POST",
-      headers: {
-        "GoCardless-Version": "2015-07-06",
-        Authorization: "Bearer [REDACTED]",
-        "Content-Type": "application/json",
-      },
-      body: {
-        billing_requests: {
-          mandate_request: {
-            scheme: "bacs",
-            verify: "recommended",
-          },
-          payment_request: {
-            amount: membershipOption === "annual" ? 5000 : 2000, // £50.00 or £20.00
-            currency: "GBP",
-            description: `FMA ${membershipOption === "annual" ? "Annual" : "Monthly"} Membership`,
-          },
-          links: {
-            customer: {
-              given_name: name.split(" ")[0],
-              family_name: name.split(" ").slice(1).join(" "),
-              email: email,
-            },
-          },
-        },
-      },
-    })
+    // Determine the description
+    const paymentDescription = description || `FMA ${membershipOption === "annual" ? "Annual" : "Monthly"} Membership`
 
-    // Mock successful response
-    console.log("GoCardless API Response:", {
-      status: 200,
-      body: {
-        billing_requests: {
-          id: "BR123456",
-          status: "pending",
-          payment_request: {
-            id: "PR123456",
-            status: "pending",
-          },
-          redirect_url: `https://pay.gocardless.com/billing/BR123456?user=${encodeURIComponent(userId)}`,
-        },
-      },
-    })
-
-    // Return a mock payment link
-    return `https://pay.gocardless.com/demo?user=${encodeURIComponent(userId)}&name=${encodeURIComponent(name)}`
-  } catch (error) {
-    console.error("GoCardless API Error:", error)
-
-    // Log the error details
-    if (error instanceof Error) {
-      console.error({
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      })
+    // Get the GoCardless API key from environment variables
+    const apiKey = process.env.GOCARDLESS_API_KEY
+    if (!apiKey) {
+      throw new Error("GoCardless API key is not configured")
     }
 
+    // STEP 1: Create a billing request
+    const requestHeaders = {
+      "GoCardless-Version": "2015-07-06",
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": `billing-request-${Date.now()}`,
+    }
+
+    // Using the exact format provided
+    const billingRequestBody = {
+      billing_requests: {
+        payment_request: {
+          description: paymentDescription,
+          amount: paymentAmount.toString(),
+          currency: "GBP",
+          app_fee: "50",
+        },
+        mandate_request: {
+          scheme: "bacs",
+        },
+      },
+    }
+
+    // Make the actual API call to create a billing request
+    const billingRequestResponse = await fetch("https://api.gocardless.com/billing_requests", {
+      method: "POST",
+      headers: requestHeaders,
+      body: JSON.stringify(billingRequestBody),
+    })
+
+    // Parse the response
+    let billingRequestData
+    try {
+      const billingRequestResponseText = await billingRequestResponse.text()
+      billingRequestData = JSON.parse(billingRequestResponseText)
+    } catch (e) {
+      throw new Error(`Invalid response from GoCardless billing request`)
+    }
+
+    // Check if the response contains an error
+    if (!billingRequestResponse.ok) {
+      const errorMessage = billingRequestData.error?.message || "Unknown error from GoCardless"
+      throw new Error(`GoCardless API error: ${errorMessage}`)
+    }
+
+    // Extract the billing request ID from the response
+    const billingRequestId = billingRequestData.billing_requests?.id
+    if (!billingRequestId) {
+      throw new Error("No billing request ID returned from GoCardless")
+    }
+
+    // STEP 2: Create a billing request flow
+    const flowRequestHeaders = {
+      "GoCardless-Version": "2015-07-06",
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": `billing-flow-${Date.now()}`,
+    }
+
+    const billingRequestFlowBody = {
+      billing_request_flows: {
+        redirect_uri: redirectUrl,
+        exit_uri: exitUrl,
+        links: {
+          billing_request: billingRequestId,
+        },
+      },
+    }
+
+    // Make the actual API call to create a billing request flow
+    const billingFlowResponse = await fetch("https://api.gocardless.com/billing_request_flows", {
+      method: "POST",
+      headers: flowRequestHeaders,
+      body: JSON.stringify(billingRequestFlowBody),
+    })
+
+    // Parse the response
+    let billingFlowData
+    try {
+      const billingFlowResponseText = await billingFlowResponse.text()
+      billingFlowData = JSON.parse(billingFlowResponseText)
+    } catch (e) {
+      throw new Error(`Invalid response from GoCardless billing flow`)
+    }
+
+    // Check if the response contains an error
+    if (!billingFlowResponse.ok) {
+      const errorMessage = billingFlowData.error?.message || "Unknown error from GoCardless"
+      throw new Error(`GoCardless API error: ${errorMessage}`)
+    }
+
+    // Extract the authorisation URL from the response
+    const authorisationUrl = billingFlowData.billing_request_flows?.authorisation_url
+    if (!authorisationUrl) {
+      throw new Error("No authorisation URL returned from GoCardless")
+    }
+
+    return authorisationUrl
+  } catch (error) {
     // Re-throw the error to be handled by the caller
     throw new Error(
       `Failed to create GoCardless payment link: ${error instanceof Error ? error.message : String(error)}`,

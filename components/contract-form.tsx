@@ -96,7 +96,6 @@ export default function ContractForm({ branchId }: ContractFormProps) {
   const [signatureData, setSignatureData] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submissionError, setSubmissionError] = useState<string | null>(null)
-  const [debugInfo, setDebugInfo] = useState<any>(null)
   const router = useRouter()
 
   // For testing, pre-fill the form with sample data
@@ -177,17 +176,7 @@ export default function ContractForm({ branchId }: ContractFormProps) {
       form.setValue("emergencyPostCode", "EF45 6GH")
       form.setValue("emergencyMobilePhone", "0987654321")
       form.setValue("emergencyRelationship", "Grandparent")
-
-      console.log("Form pre-filled with sample data")
     }
-  }, [form])
-
-  // Debug form state
-  useEffect(() => {
-    const subscription = form.watch((value) => {
-      console.log("Form values changed:", value)
-    })
-    return () => subscription.unsubscribe()
   }, [form])
 
   // Add these validation functions after the form declaration
@@ -333,7 +322,6 @@ export default function ContractForm({ branchId }: ContractFormProps) {
   }
 
   const onSignatureEnd = (signatureData: string) => {
-    console.log("Signature data received:", signatureData ? `${signatureData.substring(0, 50)}...` : "empty")
     setSignatureData(signatureData)
 
     // Set the signature data with validation
@@ -343,8 +331,6 @@ export default function ContractForm({ branchId }: ContractFormProps) {
         shouldDirty: true,
         shouldTouch: true,
       })
-    } else {
-      console.error("Invalid signature data format received")
     }
   }
 
@@ -353,7 +339,6 @@ export default function ContractForm({ branchId }: ContractFormProps) {
     // Check if signature data is present
     const currentSignatureData = form.getValues("signatureData")
     if (!currentSignatureData || currentSignatureData.length < 10) {
-      console.error("Missing or invalid signature data before submission")
       setSubmissionError("Please provide a valid signature before submitting")
       return false
     }
@@ -362,15 +347,9 @@ export default function ContractForm({ branchId }: ContractFormProps) {
   }
 
   const onSubmit = async (data: FormValues) => {
-    console.log("Form submitted with data:", data)
-    console.log("Contract agreed:", data.contractAgreed)
-    console.log("Signature data length:", data.signatureData?.length || 0)
-    console.log("Branch ID:", data.branchId)
-
     try {
       setIsSubmitting(true)
       setSubmissionError(null)
-      setDebugInfo(null)
 
       // Add user agent to the form data
       const formDataWithUserAgent = {
@@ -393,12 +372,9 @@ export default function ContractForm({ branchId }: ContractFormProps) {
         throw new Error(result.error || "Failed to submit form")
       }
 
-      console.log("Form submission successful:", result)
-
       // Send confirmation email with PDF attachment
-      console.log("Sending confirmation email...")
       try {
-        const emailResponse = await fetch("/api/send-email", {
+        await fetch("/api/send-email", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -411,12 +387,8 @@ export default function ContractForm({ branchId }: ContractFormProps) {
             branchId: data.branchId,
           }),
         })
-
-        if (!emailResponse.ok) {
-          console.warn("Email sending failed, but continuing with form submission")
-        }
       } catch (emailError) {
-        console.warn("Email sending failed, but continuing with form submission:", emailError)
+        // Continue even if email sending fails
       }
 
       toast({
@@ -424,13 +396,18 @@ export default function ContractForm({ branchId }: ContractFormProps) {
         description: "You will be redirected to the payment page shortly.",
       })
 
-      // Redirect to payment page (GoCardless)
-      console.log("Redirecting to payment page...")
-      setTimeout(() => {
-        router.push(`/payment?user_id=${result.userId}`)
-      }, 2000)
+      // Get the GoCardless payment URL directly
+      const gcResponse = await fetch(`/api/gocardless?user_id=${result.userId}`)
+
+      if (!gcResponse.ok) {
+        throw new Error("Failed to set up payment")
+      }
+
+      const gcData = await gcResponse.json()
+
+      // Redirect directly to the GoCardless payment page
+      window.location.href = gcData.redirect_url
     } catch (error: any) {
-      console.error("Error submitting form:", error)
       setSubmissionError(error.message || "An unexpected error occurred. Please try again.")
       toast({
         title: "Error submitting form",
@@ -444,9 +421,6 @@ export default function ContractForm({ branchId }: ContractFormProps) {
 
   // Add a direct submit handler for testing
   const handleDirectSubmit = () => {
-    console.log("Direct submit handler called")
-    console.log("Current form values:", form.getValues())
-
     // First check signature data specifically
     if (!validateFormBeforeSubmit()) {
       return
@@ -454,12 +428,9 @@ export default function ContractForm({ branchId }: ContractFormProps) {
 
     // Then validate the rest of the form
     form.trigger().then((isValid) => {
-      console.log("Form validation result:", isValid)
       if (isValid) {
-        console.log("Form is valid, submitting...")
         form.handleSubmit(onSubmit)()
       } else {
-        console.log("Form validation errors:", form.formState.errors)
         setSubmissionError("Please fix the form errors before submitting.")
       }
     })
@@ -484,13 +455,6 @@ export default function ContractForm({ branchId }: ContractFormProps) {
               <Alert variant="destructive" className="mb-6">
                 <AlertDescription>{submissionError}</AlertDescription>
               </Alert>
-            )}
-
-            {debugInfo && (
-              <div className="mb-6 p-4 bg-gray-100 rounded-md overflow-auto">
-                <h3 className="font-bold mb-2">Debug Information:</h3>
-                <pre className="text-xs">{JSON.stringify(debugInfo, null, 2)}</pre>
-              </div>
             )}
 
             <Form {...form}>
@@ -590,22 +554,6 @@ export default function ContractForm({ branchId }: ContractFormProps) {
                     >
                       {isSubmitting ? "Submitting..." : "Submit Form"}
                     </Button>
-                  </div>
-
-                  {/* Debug section */}
-                  <div className="mt-6 p-4 bg-gray-100 rounded-md">
-                    <h3 className="font-bold mb-2">Form State:</h3>
-                    <p>Contract Read: {form.getValues().contractRead ? "Yes" : "No"}</p>
-                    <p>Contract Agreed: {form.getValues().contractAgreed ? "Yes" : "No"}</p>
-                    <p>Signature: {form.getValues().signatureData ? "Provided" : "Not provided"}</p>
-                    <p>Branch ID: {form.getValues().branchId}</p>
-                    <p>Form Valid: {Object.keys(form.formState.errors).length === 0 ? "Yes" : "No"}</p>
-                    {Object.keys(form.formState.errors).length > 0 && (
-                      <div className="mt-2">
-                        <h4 className="font-semibold">Errors:</h4>
-                        <pre className="text-xs mt-1">{JSON.stringify(form.formState.errors, null, 2)}</pre>
-                      </div>
-                    )}
                   </div>
                 </TabsContent>
               </form>
