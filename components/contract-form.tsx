@@ -351,11 +351,58 @@ export default function ContractForm({ branchId }: ContractFormProps) {
       setIsSubmitting(true)
       setSubmissionError(null)
 
-      // Add user agent to the form data
-      const formDataWithUserAgent = {
-        ...data,
+      // Prepare form data for submission
+      // Create a clean copy of the form data to avoid circular references
+      const formDataToSubmit = {
+        memberName: data.memberName,
+        package: data.package,
+        sport: data.sport,
+        day: data.day,
+        time: data.time,
+        dateOfBirth: data.dateOfBirth,
+        gender: data.gender,
+        siblingAttends: data.siblingAttends,
+
+        guardianName: data.guardianName,
+        guardianEmail: data.guardianEmail,
+        guardianAddress: data.guardianAddress,
+        guardianPostCode: data.guardianPostCode,
+        guardianHomePhone: data.guardianHomePhone || "",
+        guardianMobilePhone: data.guardianMobilePhone,
+        guardianWorkPhone: data.guardianWorkPhone || "",
+        guardianRelationship: data.guardianRelationship,
+
+        emergencyName: data.emergencyName,
+        emergencyAddress: data.emergencyAddress,
+        emergencyPostCode: data.emergencyPostCode,
+        emergencyHomePhone: data.emergencyHomePhone || "",
+        emergencyMobilePhone: data.emergencyMobilePhone,
+        emergencyWorkPhone: data.emergencyWorkPhone || "",
+        emergencyRelationship: data.emergencyRelationship,
+
+        hasMedicalConditions: data.hasMedicalConditions,
+        medicalConditionsDetails: data.medicalConditionsDetails || "",
+        hasAllergies: data.hasAllergies,
+        allergiesDetails: data.allergiesDetails || "",
+        hasInjury: data.hasInjury,
+        injuryDetails: data.injuryDetails || "",
+
+        photoConsent: data.photoConsent,
+        firstAidConsent: data.firstAidConsent,
+
+        membershipOption: data.membershipOption,
+        branchId: data.branchId,
+
+        ipAddress: data.ipAddress,
+        signatureData: data.signatureData,
+
+        contractRead: data.contractRead,
+        contractAgreed: data.contractAgreed,
+
         userAgent: navigator.userAgent,
       }
+
+      console.log("Submitting form data:", formDataToSubmit)
 
       // Submit form data to the API route
       const response = await fetch("/api/submit-form", {
@@ -363,14 +410,16 @@ export default function ContractForm({ branchId }: ContractFormProps) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formDataWithUserAgent),
+        body: JSON.stringify(formDataToSubmit),
       })
 
-      const result = await response.json()
-
       if (!response.ok) {
-        throw new Error(result.error || "Failed to submit form")
+        const errorText = await response.text()
+        console.error("Form submission error:", errorText)
+        throw new Error(`Failed to submit form: ${errorText}`)
       }
+
+      const result = await response.json()
 
       // Send confirmation email with PDF attachment
       try {
@@ -388,6 +437,7 @@ export default function ContractForm({ branchId }: ContractFormProps) {
           }),
         })
       } catch (emailError) {
+        console.error("Error sending email:", emailError)
         // Continue even if email sending fails
       }
 
@@ -400,7 +450,9 @@ export default function ContractForm({ branchId }: ContractFormProps) {
       const gcResponse = await fetch(`/api/gocardless?user_id=${result.userId}`)
 
       if (!gcResponse.ok) {
-        throw new Error("Failed to set up payment")
+        const gcErrorText = await gcResponse.text()
+        console.error("GoCardless error:", gcErrorText)
+        throw new Error(`Failed to set up payment: ${gcErrorText}`)
       }
 
       const gcData = await gcResponse.json()
@@ -408,6 +460,7 @@ export default function ContractForm({ branchId }: ContractFormProps) {
       // Redirect directly to the GoCardless payment page
       window.location.href = gcData.redirect_url
     } catch (error: any) {
+      console.error("Form submission error:", error)
       setSubmissionError(error.message || "An unexpected error occurred. Please try again.")
       toast({
         title: "Error submitting form",

@@ -3,7 +3,15 @@ import { createServerClient } from "@/lib/supabase-server"
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.json()
+    // Parse the request body with error handling
+    let formData
+    try {
+      formData = await request.json()
+    } catch (parseError) {
+      console.error("Error parsing JSON:", parseError)
+      return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 })
+    }
+
     console.log("Form data received:", formData)
 
     // Create server-side Supabase client with service role key

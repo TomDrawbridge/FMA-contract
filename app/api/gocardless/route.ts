@@ -1,73 +1,67 @@
-import { NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase-server"
+import { type NextRequest, NextResponse } from "next/server"
 import { createGoCardlessPaymentLink } from "@/lib/gocardless"
+import { createClient } from "@supabase/supabase-js"
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const userId = searchParams.get("user_id")
-
-  if (!userId) {
-    return NextResponse.json({ error: "User ID is required" }, { status: 400 })
-  }
-
+export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient()
+    const data = await request.json()
+    const {
+      amount,
+      description,
+      customerEmail,
+      customerName,
+      customerAddressLine1,
+      customerCity,
+      customerPostalCode,
+      branchId,
+      contractId,
+    } = data
 
-    // Get user data
-    const { data: userData, error: userError } = await supabase.from("users").select("*").eq("id", userId).single()
-
-    if (userError || !userData) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    if (!amount || !description || !customerEmail || !customerName || !branchId) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    // Get member data to determine membership option and branch_id
-    const { data: memberData, error: memberError } = await supabase
-      .from("members")
-      .select("membership_option, name, branch_id")
-      .eq("user_id", userId)
-      .single()
+    // Create Supabase client with service role to access API keys
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    if (memberError) {
-      return NextResponse.json({ error: "Member data not found" }, { status: 404 })
-    }
-
-    // Get branch data including the GoCardless API key
+    // Fetch the branch-specific API key
     const { data: branchData, error: branchError } = await supabase
       .from("branches")
       .select("gocardless_api_key")
-      .eq("id", memberData.branch_id)
+      .eq("id", branchId)
       .single()
 
     if (branchError) {
-      return NextResponse.json({ error: "Branch data not found" }, { status: 404 })
+      console.error("Error fetching branch data:", branchError)
+      return NextResponse.json({ error: "Failed to fetch branch data" }, { status: 500 })
     }
 
     // Get the base URL for redirects
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.headers.get("origin") || "http://localhost:3000"
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.headers.get("origin") || ""
 
-    // Create payment link using the branch-specific GoCardless API key if available
-    const paymentLink = await createGoCardlessPaymentLink({
-      userId,
-      name: userData.name,
-      email: userData.email,
-      membershipOption: memberData.membership_option,
-      redirectUrl: `${baseUrl}/payment/success?user_id=${userId}`,
-      exitUrl: `${baseUrl}/payment/cancelled?user_id=${userId}`,
-      apiKey: branchData?.gocardless_api_key, // Use branch-specific API key
+    // Create payment link with branch-specific API key
+    const result = await createGoCardlessPaymentLink({
+      amount,
+      description,
+      successRedirectUrl: `${baseUrl}/thank-you?contractId=${contractId}&status=success`,
+      cancelledRedirectUrl: `${baseUrl}/thank-you?contractId=${contractId}&status=cancelled`,
+      customerEmail,
+      customerName,
+      customerAddressLine1: customerAddressLine1 || "",
+      customerCity: customerCity || "",
+      customerPostalCode: customerPostalCode || "",
+      apiKey: branchData?.gocardless_api_key, // Pass the branch-specific API key
     })
 
-    // Return the payment link
-    return NextResponse.json({
-      redirect_url: paymentLink,
-      user_id: userId,
-    })
-  } catch (error: any) {
-    return NextResponse.json(
-      {
-        error: "Failed to set up payment",
-        details: error.message || "Unknown error",
-      },
-      { status: 500 },
-    )
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: 500 })
+    }
+
+    return NextResponse.json(result)
+  } catch (error) {
+    console.error("Error in GoCardless API route:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
