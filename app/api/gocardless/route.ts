@@ -31,6 +31,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Member data not found" }, { status: 404 })
     }
 
+    // Get package data to determine the actual amount
+    const { data: packageData, error: packageError } = await supabase
+      .from("members")
+      .select("package_total_price")
+      .eq("user_id", userId)
+      .single()
+
     // Get the base URL for redirects
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.headers.get("origin") || "http://localhost:3000"
 
@@ -40,6 +47,7 @@ export async function GET(request: Request) {
       name: userData.name,
       email: userData.email,
       membershipOption: memberData.membership_option,
+      amount: packageData?.package_total_price ? Math.round(packageData.package_total_price * 100) : 0, // Convert to pence
       redirectUrl: `${baseUrl}/payment/success?user_id=${userId}`,
       exitUrl: `${baseUrl}/payment/cancelled?user_id=${userId}`,
     })

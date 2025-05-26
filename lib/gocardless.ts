@@ -26,7 +26,7 @@ export async function createGoCardlessPaymentLink(params: PaymentLinkParams): Pr
 
   try {
     // Determine the amount based on membership option or use the provided amount
-    const paymentAmount = amount || getMembershipAmount(membershipOption)
+    const paymentAmount = amount || 0
 
     // Determine the description
     const paymentDescription = description || `FMA ${membershipOption === "annual" ? "Annual" : "Monthly"} Membership`
@@ -143,19 +143,5 @@ export async function createGoCardlessPaymentLink(params: PaymentLinkParams): Pr
     throw new Error(
       `Failed to create GoCardless payment link: ${error instanceof Error ? error.message : String(error)}`,
     )
-  }
-}
-
-/**
- * Gets the membership amount based on the membership option
- */
-export function getMembershipAmount(membershipOption: string): number {
-  switch (membershipOption) {
-    case "annual":
-      return 5000 // £50.00
-    case "monthly":
-      return 2000 // £20.00 initial payment
-    default:
-      return 2000 // Default to monthly
   }
 }
