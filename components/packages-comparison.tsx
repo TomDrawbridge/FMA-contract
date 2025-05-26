@@ -24,10 +24,50 @@ export function PackagesComparison({ showBackButton = false, onPackageSelect }: 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   const packages = [
-    { name: "Bronze", price: 40, color: "amber" },
-    { name: "Silver", price: 45, color: "gray" },
-    { name: "Gold", price: 50, color: "yellow" },
-    { name: "Platinum", price: 58, color: "purple" },
+    {
+      name: "Bronze",
+      price: 40,
+      colors: {
+        bg: "bg-amber-50",
+        border: "border-amber-200",
+        text: "text-amber-800",
+        price: "text-amber-700",
+        subtitle: "text-amber-600",
+      },
+    },
+    {
+      name: "Silver",
+      price: 45,
+      colors: {
+        bg: "bg-gray-50",
+        border: "border-gray-200",
+        text: "text-gray-800",
+        price: "text-gray-700",
+        subtitle: "text-gray-600",
+      },
+    },
+    {
+      name: "Gold",
+      price: 50,
+      colors: {
+        bg: "bg-yellow-50",
+        border: "border-yellow-200",
+        text: "text-yellow-800",
+        price: "text-yellow-700",
+        subtitle: "text-yellow-600",
+      },
+    },
+    {
+      name: "Platinum",
+      price: 58,
+      colors: {
+        bg: "bg-purple-50",
+        border: "border-purple-200",
+        text: "text-purple-800",
+        price: "text-purple-700",
+        subtitle: "text-purple-600",
+      },
+    },
   ]
 
   const handlePackageSelect = (packageName: string, price: number) => {
@@ -127,13 +167,13 @@ export function PackagesComparison({ showBackButton = false, onPackageSelect }: 
                   <th className="p-3 text-left border-b-2 border-gray-200"></th>
                   {packages.map((pkg) => (
                     <th key={pkg.name} className="p-3 text-center border-b-2 border-gray-200">
-                      <div className={`rounded-md bg-${pkg.color}-50 p-2 border border-${pkg.color}-200`}>
-                        <div className={`text-lg font-bold text-${pkg.color}-800`}>{pkg.name}</div>
-                        <div className={`text-base font-semibold text-${pkg.color}-700`}>£{pkg.price}</div>
+                      <div className={`rounded-md ${pkg.colors.bg} p-2 border ${pkg.colors.border}`}>
+                        <div className={`text-lg font-bold ${pkg.colors.text}`}>{pkg.name}</div>
+                        <div className={`text-base font-semibold ${pkg.colors.price}`}>£{pkg.price}</div>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <div
-                              className={`text-xs text-${pkg.color}-600 mt-1 font-normal cursor-help inline-flex flex-wrap items-end justify-center gap-1`}
+                              className={`text-xs ${pkg.colors.subtitle} mt-1 font-normal cursor-help inline-flex flex-wrap items-end justify-center gap-1`}
                             >
                               <span>+ annual subscription fee</span>
                               <HelpCircle className="h-3 w-3 flex-shrink-0" />
