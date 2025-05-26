@@ -45,23 +45,26 @@ export async function createGoCardlessPaymentLink(params: PaymentLinkParams): Pr
       "Idempotency-Key": `billing-request-${Date.now()}`,
     }
 
-    // Using the exact format provided
+    // Using the new format provided
     const billingRequestBody = {
       billing_requests: {
+        mandate_request: {
+          currency: "GBP",
+          scheme: "bacs",
+        },
         payment_request: {
-          description: paymentDescription,
+          description: "Setup fee",
           amount: paymentAmount.toString(),
           currency: "GBP",
-          app_fee: "50",
-        },
-        mandate_request: {
-          scheme: "bacs",
         },
       },
     }
 
+    // Get the GoCardless API URL from environment variables
+    const apiUrl = process.env.GOCARDLESS_API_URL || "https://api.gocardless.com"
+
     // Make the actual API call to create a billing request
-    const billingRequestResponse = await fetch("https://api.gocardless.com/billing_requests", {
+    const billingRequestResponse = await fetch(`${apiUrl}/billing_requests`, {
       method: "POST",
       headers: requestHeaders,
       body: JSON.stringify(billingRequestBody),
@@ -107,7 +110,7 @@ export async function createGoCardlessPaymentLink(params: PaymentLinkParams): Pr
     }
 
     // Make the actual API call to create a billing request flow
-    const billingFlowResponse = await fetch("https://api.gocardless.com/billing_request_flows", {
+    const billingFlowResponse = await fetch(`${apiUrl}/billing_request_flows`, {
       method: "POST",
       headers: flowRequestHeaders,
       body: JSON.stringify(billingRequestFlowBody),
