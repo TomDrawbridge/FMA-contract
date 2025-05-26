@@ -1,29 +1,46 @@
 "use client"
 
+import { useState } from "react"
 import type { UseFormReturn } from "react-hook-form"
-import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form"
+import { Button } from "@/components/ui/button"
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { PackageSelectionModal } from "@/components/package-selection-modal"
 
 interface MemberInfoProps {
   form: UseFormReturn<any>
 }
 
 export default function MemberInfo({ form }: MemberInfoProps) {
+  const [isPackageModalOpen, setIsPackageModalOpen] = useState(false)
+
+  const handlePackageSelect = (packageName: string, quantity: number, totalPrice: number, discountAmount: number) => {
+    form.setValue("package", packageName)
+    form.setValue("packageQuantity", quantity)
+    form.setValue("packageTotalPrice", totalPrice)
+    form.setValue("packageDiscountAmount", discountAmount)
+  }
+
+  const selectedPackage = form.watch("package")
+  const packageQuantity = form.watch("packageQuantity")
+  const packageTotalPrice = form.watch("packageTotalPrice")
+  const packageDiscountAmount = form.watch("packageDiscountAmount")
+
   return (
     <div className="space-y-6">
-      <div className="text-xl font-semibold">Member Information</div>
+      <h2 className="text-2xl font-semibold">Member Information</h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <FormField
           control={form.control}
           name="memberName"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Participant's Full Name</FormLabel>
+              <FormLabel>Full Name *</FormLabel>
               <FormControl>
-                <Input placeholder="Full Name" {...field} />
+                <Input placeholder="Enter member's full name" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -35,9 +52,32 @@ export default function MemberInfo({ form }: MemberInfoProps) {
           name="package"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Package</FormLabel>
+              <FormLabel>Package *</FormLabel>
               <FormControl>
-                <Input placeholder="Package" {...field} />
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => setIsPackageModalOpen(true)}
+                  >
+                    {selectedPackage ? "Change Package" : "Choose Package"}
+                  </Button>
+                  {selectedPackage && (
+                    <div className="text-sm text-muted-foreground space-y-1">
+                      <p>Selected: {selectedPackage} Package</p>
+                      {packageQuantity > 1 && (
+                        <>
+                          <p>Quantity: {packageQuantity} packages</p>
+                          <p>Total: £{packageTotalPrice?.toFixed(2)}</p>
+                          {packageDiscountAmount > 0 && (
+                            <p className="text-green-600">Savings: £{packageDiscountAmount?.toFixed(2)}</p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -49,10 +89,21 @@ export default function MemberInfo({ form }: MemberInfoProps) {
           name="sport"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Sport</FormLabel>
-              <FormControl>
-                <Input placeholder="Sport" {...field} />
-              </FormControl>
+              <FormLabel>Sport *</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a sport" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="football">Football</SelectItem>
+                  <SelectItem value="gymnastics">Gymnastics</SelectItem>
+                  <SelectItem value="dance">Dance</SelectItem>
+                  <SelectItem value="martial-arts">Martial Arts</SelectItem>
+                  <SelectItem value="swimming">Swimming</SelectItem>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -63,11 +114,11 @@ export default function MemberInfo({ form }: MemberInfoProps) {
           name="day"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Day</FormLabel>
+              <FormLabel>Preferred Day *</FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select day" />
+                    <SelectValue placeholder="Select a day" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -90,10 +141,24 @@ export default function MemberInfo({ form }: MemberInfoProps) {
           name="time"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Time</FormLabel>
-              <FormControl>
-                <Input type="time" {...field} />
-              </FormControl>
+              <FormLabel>Preferred Time *</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a time" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="09:00">9:00 AM</SelectItem>
+                  <SelectItem value="10:00">10:00 AM</SelectItem>
+                  <SelectItem value="11:00">11:00 AM</SelectItem>
+                  <SelectItem value="14:00">2:00 PM</SelectItem>
+                  <SelectItem value="15:00">3:00 PM</SelectItem>
+                  <SelectItem value="16:00">4:00 PM</SelectItem>
+                  <SelectItem value="17:00">5:00 PM</SelectItem>
+                  <SelectItem value="18:00">6:00 PM</SelectItem>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -104,7 +169,7 @@ export default function MemberInfo({ form }: MemberInfoProps) {
           name="dateOfBirth"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Date of Birth</FormLabel>
+              <FormLabel>Date of Birth *</FormLabel>
               <FormControl>
                 <Input type="date" {...field} />
               </FormControl>
@@ -118,7 +183,7 @@ export default function MemberInfo({ form }: MemberInfoProps) {
           name="gender"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Gender</FormLabel>
+              <FormLabel>Gender *</FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
@@ -136,23 +201,28 @@ export default function MemberInfo({ form }: MemberInfoProps) {
             </FormItem>
           )}
         />
-
-        <FormField
-          control={form.control}
-          name="siblingAttends"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-              <FormControl>
-                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-              </FormControl>
-              <div className="space-y-1 leading-none">
-                <FormLabel>A sibling also attends Academy</FormLabel>
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
       </div>
+
+      <FormField
+        control={form.control}
+        name="siblingAttends"
+        render={({ field }) => (
+          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+            <FormControl>
+              <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+            </FormControl>
+            <div className="space-y-1 leading-none">
+              <FormLabel>Does a sibling already attend FMA?</FormLabel>
+            </div>
+          </FormItem>
+        )}
+      />
+
+      <PackageSelectionModal
+        isOpen={isPackageModalOpen}
+        onClose={() => setIsPackageModalOpen(false)}
+        onPackageSelect={handlePackageSelect}
+      />
     </div>
   )
 }
