@@ -25,8 +25,11 @@ export async function createGoCardlessPaymentLink(params: PaymentLinkParams): Pr
   } = params
 
   try {
-    // Use the provided amount (package amount)
-    const paymentAmount = amount || 0
+    // Determine the amount based on membership option or use the provided amount
+    const paymentAmount = amount || getMembershipAmount(membershipOption)
+
+    // Determine the description
+    const paymentDescription = description || `FMA ${membershipOption === "annual" ? "Annual" : "Monthly"} Membership`
 
     // Get the GoCardless API key from environment variables
     const apiKey = process.env.GOCARDLESS_API_KEY
@@ -145,7 +148,6 @@ export async function createGoCardlessPaymentLink(params: PaymentLinkParams): Pr
 
 /**
  * Gets the membership amount based on the membership option
- * Note: This is no longer used directly in the payment flow
  */
 export function getMembershipAmount(membershipOption: string): number {
   switch (membershipOption) {
