@@ -19,8 +19,8 @@ export default function PaymentInfo({ form }: PaymentInfoProps) {
       <Alert className="bg-green-50 border-green-200">
         <Gift className="h-4 w-4 text-green-600" />
         <AlertDescription className="text-green-800">
-          <strong>Special Offer:</strong> Membership is completely FREE until September 2025! No payment for membership
-          fee required during registration. You only need to pay for your monthly classes package.
+          <strong>Special Offer:</strong> Everything is completely FREE until October 2025! No payment for membership
+          fee or classes required during registration.
         </AlertDescription>
       </Alert>
 
@@ -47,7 +47,7 @@ export default function PaymentInfo({ form }: PaymentInfoProps) {
                         <div className="space-y-1">
                           <div className="text-sm text-gray-500 line-through">£50.00</div>
                           <div className="text-2xl font-bold text-green-600">£0.00</div>
-                          <CardDescription>Free until September 2025</CardDescription>
+                          <CardDescription>Free until October 2025</CardDescription>
                         </div>
                       </CardContent>
                     </Card>
@@ -67,7 +67,7 @@ export default function PaymentInfo({ form }: PaymentInfoProps) {
                         <div className="space-y-1">
                           <div className="text-sm text-gray-500 line-through">£20.00 initial + £3.00/month</div>
                           <div className="text-2xl font-bold text-green-600">£0.00</div>
-                          <CardDescription>Free until September 2025</CardDescription>
+                          <CardDescription>Free until October 2025</CardDescription>
                         </div>
                       </CardContent>
                     </Card>
@@ -83,15 +83,16 @@ export default function PaymentInfo({ form }: PaymentInfoProps) {
           <h3 className="font-semibold mb-2 text-blue-900">Promotional Details</h3>
           <div className="text-sm text-blue-800 space-y-2">
             <p>
-              🎉 <strong>Limited Time Offer:</strong> All memberships are completely free until September 2025.
+              🎉 <strong>Limited Time Offer:</strong> All memberships and classes are completely free until October
+              2025.
             </p>
             <p>
-              📅 <strong>What happens after September 2025?</strong> Regular pricing will resume, and you'll be notified
+              📅 <strong>What happens after October 2025?</strong> Regular pricing will resume, and you'll be notified
               in advance with options to continue or cancel.
             </p>
             <p>
-              ✨ <strong>No membership fees:</strong> This promotion covers your membership fee - you only need to pay
-              for your monthly classes package.
+              ✨ <strong>Everything included:</strong> This promotion covers both your membership fee and monthly
+              classes package.
             </p>
           </div>
         </div>

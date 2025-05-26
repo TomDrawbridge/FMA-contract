@@ -97,11 +97,8 @@ export default function MemberInfo({ form }: MemberInfoProps) {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="football">Football</SelectItem>
                   <SelectItem value="gymnastics">Gymnastics</SelectItem>
-                  <SelectItem value="dance">Dance</SelectItem>
-                  <SelectItem value="martial-arts">Martial Arts</SelectItem>
-                  <SelectItem value="swimming">Swimming</SelectItem>
+                  <SelectItem value="trampolining">Trampolining</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />
