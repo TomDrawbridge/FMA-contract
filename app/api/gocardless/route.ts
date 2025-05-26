@@ -20,10 +20,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Get member data to determine membership option
+    // Get member data including the package total price
     const { data: memberData, error: memberError } = await supabase
       .from("members")
-      .select("membership_option, name, branch_id, package")
+      .select("membership_option, name, branch_id, package, package_total_price")
       .eq("user_id", userId)
       .single()
 
@@ -34,9 +34,11 @@ export async function GET(request: Request) {
     // Get the base URL for redirects
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.headers.get("origin") || "http://localhost:3000"
 
-    // For now, use the membership amount - we'll need to update this to use the package amount
-    // when that data is available in the database
-    const paymentAmount = getPackageAmount(memberData.package)
+    // Get the package amount in pence (convert from pounds)
+    const packageAmount = memberData.package_total_price ? Math.round(memberData.package_total_price * 100) : 0
+
+    console.log("Package total price from DB:", memberData.package_total_price)
+    console.log("Amount in pence for GoCardless:", packageAmount)
 
     // Create payment link using the real GoCardless API
     const paymentLink = await createGoCardlessPaymentLink({
@@ -44,7 +46,7 @@ export async function GET(request: Request) {
       name: userData.name,
       email: userData.email,
       membershipOption: memberData.membership_option,
-      amount: paymentAmount, // Use the package amount
+      amount: packageAmount, // Use the actual package total price
       redirectUrl: `${baseUrl}/payment/success?user_id=${userId}`,
       exitUrl: `${baseUrl}/payment/cancelled?user_id=${userId}`,
     })
@@ -63,19 +65,4 @@ export async function GET(request: Request) {
       { status: 500 },
     )
   }
-}
-
-/**
- * Gets the package amount in pence based on the package name
- */
-function getPackageAmount(packageName: string): number {
-  // Map package names to amounts in pence
-  const packageAmounts: Record<string, number> = {
-    Bronze: 4000, // £40.00
-    Silver: 5000, // £50.00
-    Gold: 6000, // £60.00
-    Standard: 4000, // £40.00 (fallback)
-  }
-
-  return packageAmounts[packageName] || 4000 // Default to £40 if package not found
 }
