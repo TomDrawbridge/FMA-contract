@@ -173,7 +173,7 @@ export function PackagesComparison({ showBackButton = false, onPackageSelect }: 
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <div
-                              className={`text-xs ${pkg.colors.subtitle} mt-1 font-normal cursor-help inline-flex flex-wrap items-end justify-center gap-1`}
+                              className={`text-xs ${pkg.colors.subtitle} mt-1 font-normal cursor-help inline-flex items-center justify-center gap-1`}
                             >
                               <span>+ annual subscription fee</span>
                               <HelpCircle className="h-3 w-3 flex-shrink-0" />
